@@ -1,0 +1,1 @@
+STRING_LITERAL_SINGLE_QUOTE	::=	"\'" (#'[^\u0027\u005C\u000A\u000D]' | ECHAR | UCHAR)* "\'" 

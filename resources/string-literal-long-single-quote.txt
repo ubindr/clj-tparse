@@ -1,0 +1,1 @@
+STRING_LITERAL_LONG_SINGLE_QUOTE	::=	"\'\'\'" (("\'" | "\'\'")? (#'[^\'\\]' | ECHAR | UCHAR))* "\'\'\'"
