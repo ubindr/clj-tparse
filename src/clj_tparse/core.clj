@@ -4,7 +4,7 @@
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
 (def turtle-tst-file "resources/tst-rdf-turtle-11-ebfn-spec.txt")
-(def input-file "resources/example1.ttl")
+(def input-file "resources/example2.ttl")
 (def line-counter (atom 0))
 
 (def resultset-map (atom {}))
