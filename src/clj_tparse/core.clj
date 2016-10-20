@@ -3,30 +3,28 @@
 
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def turtle-tst-file "resources/tst-rdf-turtle-11-ebfn-spec.txt")
-(def input-file "resources/example3.ttl")
-(def line-counter (atom 0))
+(def input-file "resources/example0.ttl")
 
 (def resultset-map (atom {}))
+
+;; TODO convert turtle input to EDN triples
+;; - TODO 1 function for parsing turtle file with Instaparse output
+;; - TODO 2 Convert Instaparse output to EDN
+
 
 (defn read-file
   []
   (slurp input-file))
 
-;; TODO read inputfile line by line
-;; TODO decide the line type (base, prefix, triple or multi-line)
-;; TODO proces input based on line type
-
-(defn parse-file
+(defn read-line
   [file]
   (doseq [line (clojure.string/split-lines file)]
-    (swap! line-counter inc)
-    (println "Weer een:" @line-counter ":" line)))
+    (println "Een:" line)))
 
 
 (defn start!
   []
-  (parse-file (read-file)))
+  (println "function to start clj-tparse"))
 
 (comment (defn line [n filename]
            (with-open [rdr (io/reader filename)]
