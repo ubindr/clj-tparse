@@ -1,6 +1,7 @@
 (ns clj-tparse.core
   (:require [instaparse.core :as insta]
-            [clojure.set :refer [map-invert]]))
+            [clojure.set :refer [map-invert]]
+            [clojure.string :as string]))
 
 (declare configure-parser vectormap->rdf-edn)
 
@@ -98,9 +99,11 @@
       (apply vm2rdf-edn rest))
     (apply vm2rdf-edn rest))))
 
-(def tst-vec (parse input-file))
+(def tst-dataset (parse input-file))
 
-(def base-prefix "pref")
+(def match-url (partial re-matches #"^(http[^\s]+[/#])([^/#].*)$"))
+
+(def base-prefix "ns")
 
 (def prefix-counter (atom 0))
 
@@ -121,28 +124,54 @@
   [prefix iri]
   (swap! dataset update :prefix conj {prefix iri}))
 
+;; prefix logic
+;; prefix from input file is to be read as a url.
+;;
+;; incase input is url go on, if input is prefix retrieve
+;; url.
+;; for url check if it exists in local-prefixes. if it exists, retrieve prefix.
+;; then check if url does exist in global-prefixes, if true, retreive prefix.
+;; check if local prefix does not exist in global prefixes, if global prefix and local prefix are identical,
+;; then build new prefix and wirte to global prefixes.
+;; otherwise build prefixes
+;; return prefix for url in global prefixes.
+
+
 (defn return-prefix
   "Returns the correct prefix for a namespace.
   In case a prefix is supplied, it retrieves the namespace, to make sure it isn't used already.
   When the namespace is already used, the existing prefix for this namespace will be supplied.
   Otherwhise the prefix with it's original namespace will be registered."
-  [ns]
-  (let [local-prefs @local-prefixes
-        absolute-iri (local-prefs ns)
-        prefixes (@dataset :prefix)
-        nses (map-invert prefixes)]
-    (if (string? ns)
-      (or (nses ns) (build-prefix))
-      (name (or (nses absolute-iri) (do (register-prefix ns absolute-iri) ns))))))
+  [nspace]
+  (let [ns (if (= ":" nspace) "local" nspace)
+        lp-map @local-prefixes
+        gp-map (@dataset :prefix)
+        absolute-url (or (first (match-url ns)) (lp-map (keyword ns)) (gp-map (keyword ns)))
+        local-nses (map-invert lp-map)
+        nses (map-invert gp-map)
+        a (or (and (local-nses absolute-url) 2) 0)
+        b (or (and (nses absolute-url) 1) 0)
+        g-prefix (nses absolute-url)
+        l-prefix (local-nses absolute-url)]
+    (println "This number shows up" (+ a b))
+    (condp = (+ a b)
+      0 (build-prefix)
+      1 g-prefix
+      2 (let [prefix (or (if (gp-map l-prefix)
+                           false
+                           l-prefix)
+                         (build-prefix))]
+          (register-prefix prefix absolute-url) prefix)
+      3 g-prefix
+      (println "Something different" (+ a b)))))
 
 (defn prefixed-name
   [value]
-  (let [prefix (return-prefix (keyword (first value)))
-        e (count value)]
-    (cond
-      (= e 3) (keyword (str prefix (apply str (rest value))))
-      (= e 4) (keyword (str prefix "/" (apply str (rest (rest value)))))
-      :else (println "No match for count of elements in value:" e "value:" value))))
+  (let [[p n] (rest (re-matches #"^([^\s]*):([^\s]+)" (apply str value)))
+        prefix (name (return-prefix (or (not-empty p) (first value))))]
+    (if (= (keyword ":") prefix)
+      (keyword (str prefix n))
+      (keyword (str prefix "/" n)))))
 
 (defprotocol IriTypes
   "allows the handling of different iri datatypes"
@@ -150,10 +179,10 @@
 
 (extend-type java.lang.String
   IriTypes
-  (iri [value] (str "dit is een java.lang.String " value)
-    (let [[ns term] (rest (re-matches #"^(http[^\s]+[/#])([^/#].*)$" value))
+  (iri [value]
+    (let [[ns term] (rest (match-url value))
           prefix (return-prefix ns)]
-      (swap! dataset assoc :prefix {prefix ns})
+      (swap! dataset update :prefix conj {prefix ns})
       (keyword (str (name prefix) "/" term)))))
 
 (extend-type clojure.lang.PersistentVector
@@ -177,24 +206,27 @@
 (defn process-resource
   [ti]
   (println "ti:" ti)
-  (if (= ti :triples)
-    nil
-    (condp = (ti 0)
-      :subject (swap! triple assoc 0 (resource (ti 1) @dataset))
-      :predicateObjectList (map process-resource (rest ti))
-      :predicate (swap! triple assoc 1 (resource (ti 1) @dataset))
-      :objectList (map process-resource (rest ti))
-      :object (do
-                (swap! triple assoc 2 (resource (ti 1) @dataset))
-                (swap! dataset update :triples conj @triple)
-                (reset! triple []))
-      (println "End of Condp ti 0:" (ti 0) "-ti:" ti "-triple:" @triple))))
+  (condp = (ti 0)
+    :triples (mapv process-resource (rest ti))
+    :subject (do
+               (reset! triple [])
+               (swap! triple assoc 0 (resource (ti 1) @dataset)))
+    :predicateObjectList (do
+                           (swap! triple subvec 0 1)
+                           (mapv process-resource (rest ti)))
+    :predicate (swap! triple assoc 1 (resource (ti 1) @dataset))
+    :objectList (do
+                  (swap! triple subvec 0 2)
+                  (mapv process-resource (rest ti)))
+    :object (do
+              (swap! triple assoc 2 (resource (ti 1) @dataset))
+              (swap! dataset update :triples conj @triple))
+    (println "End of Condp ti 0:" (ti 0) "-ti:" ti "-triple:" @triple)))
 
 (defn process-triples
   [symbol]
   (println "symbol:" symbol)
-  (for [ti symbol]
-    (process-resource ti)))
+  (mapv process-resource symbol))
 
 (defn prefix-namespace
   "Returns absolute url namespace.
@@ -210,10 +242,10 @@
   (let [e (count statement)]
     (cond
       (= e 3) (swap! local-prefixes conj
-                                     {(keyword (statement 1)) (prefix-namespace ((statement 2) 1))})
+                     {(keyword (if (= ":" (statement 1)) "local" (statement 1))) (prefix-namespace ((statement 2) 1))})
       (= e 4) (swap! local-prefixes conj
-                                     {(keyword (statement 1)) (prefix-namespace ((statement 3) 1))})
-      :else (println "Incorrect amount of elements, count is:" (count statement) "The failing statement:" statement))))
+                     {(keyword (statement 1)) (prefix-namespace ((statement 3) 1))})
+      :else (println "Incorrect amount of elements, count is:" e "The failing statement:" statement))))
 
 (defn process-base
   [base]
