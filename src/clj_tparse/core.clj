@@ -198,10 +198,22 @@
       :PrefixedName (prefixed-name (rest value))
       (println "This vector iri does not resovle:" value))))
 
+(defn string-literal-types
+  [slt]
+  (println "slt input:" slt)
+  (condp = (slt 0)
+    :string [:value (apply str (rest slt))]
+    :langtag [:lang (apply str (rest (rest slt)))]
+    :iri [:type (iri (slt 1))]
+    (println "string-literal-types no match - slt:" slt)))
+
 (defn process-rdf-literal
   [literal]
-  (condp = (literal 0)
-    :string (apply str (rest literal))))
+  (let [c (count literal)]
+    (println "process-rdf-literal count is:" c "full literal is:" literal)
+    (if (> c 1)
+      (into {} (mapv string-literal-types literal))
+      (apply str (rest (first literal))))))
 
 (defn process-sub-resource
   [bn]
@@ -230,7 +242,7 @@
            (keyword "rdf/type"))
     :literal (do (println "This is r:" r "And this is (r 1):" (r 1))
                  (resource (r 1)))
-    :RDFLiteral (process-rdf-literal (r 1))
+    :RDFLiteral (process-rdf-literal (rest r))
     :integer (Integer. (apply str (rest r)))
     :decimal (BigDecimal. (apply str (rest r)))
     :double (BigDecimal. (apply str (rest r)))
