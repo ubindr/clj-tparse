@@ -3,10 +3,12 @@
             [clojure.set :refer [map-invert]]
             [clojure.string :as string]))
 
+(declare process-resource resource)
+
 (declare configure-parser vectormap->rdf-edn)
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def input-file "resources/example0.ttl")
+(def input-file "resources/example6.ttl")
 
 (def resultset-map (atom {}))
 
@@ -110,7 +112,7 @@
 (def dataset (atom {:prefix {}
                     :triples #{}}))
 
-(def local-prefixes (atom {}))
+(def parsing-prefixes (atom {}))
 
 (def triple (atom []))
 
@@ -144,7 +146,7 @@
   Otherwhise the prefix with it's original namespace will be registered."
   [nspace]
   (let [ns (if (= ":" nspace) "local" nspace)
-        lp-map @local-prefixes
+        lp-map @parsing-prefixes
         gp-map (@dataset :prefix)
         absolute-url (or (first (match-url ns)) (lp-map (keyword ns)) (gp-map (keyword ns)))
         local-nses (map-invert lp-map)
@@ -153,7 +155,7 @@
         b (or (and (nses absolute-url) 1) 0)
         g-prefix (nses absolute-url)
         l-prefix (local-nses absolute-url)]
-    (println "This number shows up" (+ a b))
+    (println "Prefix deciscion number" (+ a b))
     (condp = (+ a b)
       0 (build-prefix)
       1 g-prefix
@@ -180,10 +182,13 @@
 (extend-type java.lang.String
   IriTypes
   (iri [value]
-    (let [[ns term] (rest (match-url value))
-          prefix (return-prefix ns)]
-      (swap! dataset update :prefix conj {prefix ns})
-      (keyword (str (name prefix) "/" term)))))
+    (let [lc (last value)]
+      (if (or (= \/ lc) (= \# lc) (= \? lc))
+        value
+        (let [[ns term] (rest (match-url value))
+             prefix (return-prefix ns)]
+         (swap! dataset update :prefix conj {prefix ns})
+         (keyword (str (name prefix) "/" term)))))))
 
 (extend-type clojure.lang.PersistentVector
   IriTypes
@@ -193,15 +198,45 @@
       :PrefixedName (prefixed-name (rest value))
       (println "This vector iri does not resovle:" value))))
 
+(defn process-rdf-literal
+  [literal]
+  (condp = (literal 0)
+    :string (apply str (rest literal))))
+
+(defn process-sub-resource
+  [bn]
+  (condp = (bn 0)
+    :predicateObjectList (map process-sub-resource (rest bn))
+    :predicate (resource (bn 1))
+    :objectList (apply process-sub-resource (rest bn))
+    :object (resource (bn 1))
+    (println "process-sub-resource condp *no match* - ti 0:" (bn 0) "- ti:" bn "- triple:" @triple)))
+
+(defn resource-pair
+  [result resource]
+  (let [r (process-sub-resource resource)
+        l (last result)]
+    (if (nil? l)
+      (conj result r)
+      (if (= (type l) clojure.lang.PersistentVector)
+        (conj result r)
+        (conj (subvec result 0 (- (count result) 1)) [l r])))))
+
 (defn resource
-  [r dataset]
-  (let [base (:base dataset)
-        prefix (:prefix dataset)
-        triples (:triples dataset)]
-    (condp = (r 0)
-      :iri (iri (r 1))
-      :a (do (register-prefix :rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-             (keyword "rdf/type")))))
+  [r]
+  (condp = (r 0)
+    :iri (iri (r 1))
+    :a (do (register-prefix :rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+           (keyword "rdf/type"))
+    :literal (do (println "This is r:" r "And this is (r 1):" (r 1))
+                 (resource (r 1)))
+    :RDFLiteral (process-rdf-literal (r 1))
+    :integer (Integer. (apply str (rest r)))
+    :decimal (BigDecimal. (apply str (rest r)))
+    :double (BigDecimal. (apply str (rest r)))
+    :blankNodePropertyList (into {}
+                                 (reduce resource-pair [] (rest (r 1))))
+    :collection (mapv process-sub-resource (rest r))))
 
 (defn process-resource
   [ti]
@@ -210,18 +245,18 @@
     :triples (mapv process-resource (rest ti))
     :subject (do
                (reset! triple [])
-               (swap! triple assoc 0 (resource (ti 1) @dataset)))
+               (swap! triple assoc 0 (resource (ti 1))))
     :predicateObjectList (do
                            (swap! triple subvec 0 1)
                            (mapv process-resource (rest ti)))
-    :predicate (swap! triple assoc 1 (resource (ti 1) @dataset))
+    :predicate (swap! triple assoc 1 (resource (ti 1)))
     :objectList (do
                   (swap! triple subvec 0 2)
                   (mapv process-resource (rest ti)))
     :object (do
-              (swap! triple assoc 2 (resource (ti 1) @dataset))
+              (swap! triple assoc 2 (resource (ti 1)))
               (swap! dataset update :triples conj @triple))
-    (println "End of Condp ti 0:" (ti 0) "-ti:" ti "-triple:" @triple)))
+    (println "process-resource condp *no match* - ti 0:" (ti 0) "- ti:" ti "- triple:" @triple)))
 
 (defn process-triples
   [symbol]
@@ -241,9 +276,9 @@
   [statement]
   (let [e (count statement)]
     (cond
-      (= e 3) (swap! local-prefixes conj
+      (= e 3) (swap! parsing-prefixes conj
                      {(keyword (if (= ":" (statement 1)) "local" (statement 1))) (prefix-namespace ((statement 2) 1))})
-      (= e 4) (swap! local-prefixes conj
+      (= e 4) (swap! parsing-prefixes conj
                      {(keyword (statement 1)) (prefix-namespace ((statement 3) 1))})
       :else (println "Incorrect amount of elements, count is:" e "The failing statement:" statement))))
 
