@@ -8,7 +8,7 @@
 (declare configure-parser vectormap->rdf-edn)
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def input-file "resources/example6.ttl")
+(def input-file "resources/example8.ttl")
 
 (def resultset-map (atom {}))
 
@@ -246,6 +246,7 @@
     :integer (Integer. (apply str (rest r)))
     :decimal (BigDecimal. (apply str (rest r)))
     :double (BigDecimal. (apply str (rest r)))
+    :BooleanLiteral (r 1)
     :blankNodePropertyList (into {}
                                  (reduce resource-pair [] (rest (r 1))))
     :collection (mapv process-sub-resource (rest r))))
