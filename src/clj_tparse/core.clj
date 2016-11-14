@@ -8,7 +8,7 @@
 (declare configure-parser vectormap->rdf-edn)
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def input-file "resources/example8.ttl")
+(def input-file "resources/example7.ttl")
 
 (def resultset-map (atom {}))
 
@@ -126,46 +126,35 @@
   [prefix iri]
   (swap! dataset update :prefix conj {prefix iri}))
 
-;; prefix logic
-;; prefix from input file is to be read as a url.
-;;
-;; incase input is url go on, if input is prefix retrieve
-;; url.
-;; for url check if it exists in local-prefixes. if it exists, retrieve prefix.
-;; then check if url does exist in global-prefixes, if true, retreive prefix.
-;; check if local prefix does not exist in global prefixes, if global prefix and local prefix are identical,
-;; then build new prefix and wirte to global prefixes.
-;; otherwise build prefixes
-;; return prefix for url in global prefixes.
-
-
 (defn return-prefix
-  "Returns the correct prefix for a namespace.
+  "Returns the applicable prefix for a namespace.
   In case a prefix is supplied, it retrieves the namespace, to make sure it isn't used already.
   When the namespace is already used, the existing prefix for this namespace will be supplied.
   Otherwhise the prefix with it's original namespace will be registered."
   [nspace]
-  (let [ns (if (= ":" nspace) "local" nspace)
-        lp-map @parsing-prefixes
-        gp-map (@dataset :prefix)
-        absolute-url (or (first (match-url ns)) (lp-map (keyword ns)) (gp-map (keyword ns)))
-        local-nses (map-invert lp-map)
-        nses (map-invert gp-map)
-        a (or (and (local-nses absolute-url) 2) 0)
-        b (or (and (nses absolute-url) 1) 0)
-        g-prefix (nses absolute-url)
-        l-prefix (local-nses absolute-url)]
-    (println "Prefix deciscion number" (+ a b))
-    (condp = (+ a b)
-      0 (build-prefix)
-      1 g-prefix
-      2 (let [prefix (or (if (gp-map l-prefix)
-                           false
-                           l-prefix)
-                         (build-prefix))]
-          (register-prefix prefix absolute-url) prefix)
-      3 g-prefix
-      (println "Something different" (+ a b)))))
+  (if (= "_" nspace)
+    (keyword nspace)
+    (let [ns (if (= ":" nspace) "local" nspace)
+          lp-map @parsing-prefixes
+          gp-map (@dataset :prefix)
+          absolute-url (or (first (match-url ns)) (lp-map (keyword ns)) (gp-map (keyword ns)))
+          local-nses (map-invert lp-map)
+          nses (map-invert gp-map)
+          a (or (and (local-nses absolute-url) 2) 0)
+          b (or (and (nses absolute-url) 1) 0)
+          g-prefix (nses absolute-url)
+          l-prefix (local-nses absolute-url)]
+      (println "Prefix deciscion number" (+ a b))
+      (condp = (+ a b)
+        0 (build-prefix)
+        1 g-prefix
+        2 (let [prefix (or (if (gp-map l-prefix)
+                             false
+                             l-prefix)
+                           (build-prefix))]
+            (register-prefix prefix absolute-url) prefix)
+        3 g-prefix
+        (println "Something different" (+ a b))))))
 
 (defn prefixed-name
   [value]
@@ -194,7 +183,10 @@
   IriTypes
   (iri [value] (str "En dit is de vector " value)
     (condp = (value 0)
-      :ref (keyword (str "base/" (value 1)))
+      :ref (if (re-matches #"^([^\s]*):([^\s]+)"
+                           (apply str (rest value)))
+             (keyword (str "base/" (value 1)))
+             (apply str (rest value)))
       :PrefixedName (prefixed-name (rest value))
       (println "This vector iri does not resovle:" value))))
 
@@ -242,13 +234,16 @@
            (keyword "rdf/type"))
     :literal (do (println "This is r:" r "And this is (r 1):" (r 1))
                  (resource (r 1)))
-    :RDFLiteral (process-rdf-literal (rest r))
+    :RDFLiteral (process-rdf-literal (vec (rest r)))
     :integer (Integer. (apply str (rest r)))
     :decimal (BigDecimal. (apply str (rest r)))
     :double (BigDecimal. (apply str (rest r)))
     :BooleanLiteral (r 1)
     :blankNodePropertyList (into {}
                                  (reduce resource-pair [] (rest (r 1))))
+    :BlankNode (if (= (apply str (rest r)) "[]")
+                 {:empty :blank-node}
+                 (prefixed-name (rest r)))
     :collection (mapv process-sub-resource (rest r))))
 
 (defn process-resource
@@ -269,6 +264,9 @@
     :object (do
               (swap! triple assoc 2 (resource (ti 1)))
               (swap! dataset update :triples conj @triple))
+    :blankNodePropertyList (swap! triple conj
+                                  (into {}
+                                        (reduce resource-pair [] (rest (ti 1)))))
     (println "process-resource condp *no match* - ti 0:" (ti 0) "- ti:" ti "- triple:" @triple)))
 
 (defn process-triples
@@ -308,4 +306,5 @@
         (condp = kw
           :triples (process-triples symbol)
           :prefix (process-prefix symbol)
-          :base (process-base symbol))))))
+          :base (process-base symbol)
+          (println "Can't make any sense of this input -kw " kw " -symbol" symbol))))))

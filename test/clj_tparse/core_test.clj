@@ -1,4 +1,5 @@
-(ns clj-tparse.core-test
+(ns clj-tparse.grammar-test
+  "Testing the turtle grammer definition file, as used by instaparse"
   (:require [clojure.test :refer :all]
             [instaparse.core :as insta]))
 
