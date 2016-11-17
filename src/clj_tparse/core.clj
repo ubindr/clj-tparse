@@ -8,13 +8,9 @@
 (declare configure-parser vectormap->rdf-edn)
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def input-file "resources/example7.ttl")
+(def input-file "resources/example11.ttl")
 
 (def resultset-map (atom {}))
-
-;; TODO convert turtle input to EDN triples
-;; - TODO 2 Convert Instaparse output to EDN
-
 
 (defn re-apply
   [vm]
@@ -126,8 +122,21 @@
   [prefix iri]
   (swap! dataset update :prefix conj {prefix iri}))
 
+;; prefix logic
+;; prefix from input file is to be read as a url.
+;;
+;; incase input is url go on, if input is prefix retrieve
+;; url.
+;; for url check if it exists in local-prefixes. if it exists, retrieve prefix.
+;; then check if url does exist in global-prefixes, if true, retreive prefix.
+;; check if local prefix does not exist in global prefixes, if global prefix and local prefix are identical,
+;; then build new prefix and wirte to global prefixes.
+;; otherwise build prefixes
+;; return prefix for url in global prefixes.
+
+
 (defn return-prefix
-  "Returns the applicable prefix for a namespace.
+  "Returns the correct prefix for a namespace.
   In case a prefix is supplied, it retrieves the namespace, to make sure it isn't used already.
   When the namespace is already used, the existing prefix for this namespace will be supplied.
   Otherwhise the prefix with it's original namespace will be registered."
