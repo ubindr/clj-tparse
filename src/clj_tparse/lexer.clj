@@ -3,40 +3,19 @@
 
 (declare string-regex-splitter remove-comments)
 
-(def tst-input "resources/example6.ttl")
+(def tst-input "resources/example1.ttl")
 
 (def regex-triple-quote #" \"\"\"|\"\"\" ")
 
 (def regex-triple-single-quote #" '''|''' ")
 
-(def splitter-collection
-  [remove-comments
-   (string-regex-splitter regex-triple-quote)
-   (string-regex-splitter regex-triple-single-quote)])
-
 (def symbols (atom []))
-
-(defn next-symbol!
-  []
-  (swap! symbols rest))
-
-(defn accept!
-  [re-s]
-  (if-let [current-symbol (first @symbols)]
-    (do
-      (if (re-matches (re-pattern re-s) current-symbol)
-        (do
-          (next-symbol!)
-          true)
-        false))
-    nil))                                                   ;; Signaling symbols is empty
 
 (defn term-splitter
   "Splits turtle input into meaningfull parts.
   Seperates strings from the rest of the turtle formatted input. Puts strings in maps labeled as string.
   Returns vector containing alternating vectors and maps"
   [string]
-  (println "string:" string)
   (if (string? string)
     (map #(%2 %1) (str/split string #"\"|'")
           (cycle [(fn [s] (str/split s #"\s+|\n+")) (fn [s] {:string (identity s)})]))
@@ -59,16 +38,19 @@
     (fn [p f]
       (mapv f p))
     [string]
-    splitter-collection))
+    [remove-comments
+     (string-regex-splitter regex-triple-quote)
+     (string-regex-splitter regex-triple-single-quote)]))
+
+(defn manage-nesting
+  [string]
+  (if (string? (first string))
+    string
+    (string 0)))
 
 (defn lexer
   [string]
   (vec (filter not-empty
            (flatten
              (map term-splitter
-                   ((splitter-composer string) 0))))))
-
-(defn parse-statements
-  [string]
-  (do
-    (reset! symbols (lexer string))))
+                  (manage-nesting (splitter-composer string)))))))
