@@ -5,11 +5,19 @@
 
 (declare process-resource resource configure-parser vectormap->rdf-edn)
 
-(def turtle-config-file "resources/rdf-turtle-spec.txt")
-(def input-file "resources/example11.ttl")
-
+;; state-atoms
+(def prefix-counter (atom 0))
+(def dataset (atom {:prefix  {}
+                    :triples #{}}))
 (def resultset-map (atom {}))
+(def triple (atom []))
+(def parsing-prefixes (atom {}))
 
+;; define parsing environment
+(def turtle-config-file "resources/rdf-turtle-spec.txt")
+(def input-file "resources/example10.ttl")
+
+;; Parser definition
 (def parser-def (insta/parser turtle-config-file))
 
 (defn re-apply
@@ -23,6 +31,9 @@
 (def function-map
   {:turtleDoc re-apply
    :triples re-apply})
+
+
+;;;; unfinished REPL generated functions
 
 (defn vectormap->rdf-edn
   ([vm]
@@ -41,9 +52,6 @@
 (defn parse
   [content]
   (insta/parse parser-def (get-content content)))
-
-
-;;;; unfinished REPL generated functions
 
 (defn print-value
   [first]
@@ -77,15 +85,6 @@
 (def match-url (partial re-matches #"^(http[^\s]+[/#])([^/#].*)$"))
 
 (def base-prefix "ns")
-
-(def prefix-counter (atom 0))
-
-(def dataset (atom {:prefix {}
-                    :triples #{}}))
-
-(def parsing-prefixes (atom {}))
-
-(def triple (atom []))
 
 (defn build-prefix
   []
@@ -143,36 +142,35 @@
 (defn prefixed-name
   [value]
   (let [[p n] (rest (re-matches #"^([^\s]*):([^\s]+)" (apply str value)))
+        n (if (Character/isDigit (first n))
+            (str "#-remove-#" n)
+            n)
         prefix (name (return-prefix (or (not-empty p) (first value))))]
     (if (= (keyword ":") prefix)
       (keyword (str prefix n))
       (keyword (str prefix "/" n)))))
 
-(defprotocol IriTypes
-  "allows the handling of different iri datatypes"
-  (iri [value] "Converts iri to correct value for vector-triple"))
-
-(extend-type java.lang.String
-  IriTypes
-  (iri [value]
-    (let [lc (last value)]
-      (if (or (= \/ lc) (= \# lc) (= \? lc))
-        value
-        (let [[ns term] (rest (match-url value))
-             prefix (return-prefix ns)]
-         (swap! dataset update :prefix conj {prefix ns})
-         (keyword (str (name prefix) "/" term)))))))
-
-(extend-type clojure.lang.PersistentVector
-  IriTypes
-  (iri [value] (str "En dit is de vector " value)
-    (condp = (value 0)
-      :ref (if (re-matches #"^([^\s]*):([^\s]+)"
-                           (apply str (rest value)))
-             (keyword (str "base/" (value 1)))
-             (apply str (rest value)))
-      :PrefixedName (prefixed-name (rest value))
-      (println "This vector iri does not resovle:" value))))
+(defn iri
+  [value]
+  (do
+    (println "iri - value:" value)
+    (if (vector? value)
+      (let [v (last value)]
+        (condp = (value 0)
+          :ref (if (re-matches #"^([^\s/@]+)"
+                               (apply str v))
+                 (keyword (str "base/" v))
+                 (apply str v))
+          :PrefixedName (prefixed-name (rest value))
+          (println "This vector iri does not resovle:" value)))
+      (let [lc (last value)]
+        (println "value:" value)
+        (if (or (= \/ lc) (= \# lc) (= \? lc))
+          value
+          (let [[ns term] (rest (match-url value))
+                prefix (return-prefix ns)]
+            (swap! dataset update :prefix conj {prefix ns})
+            (keyword (str (name prefix) "/" term))))))))
 
 (defn string-literal-types
   [slt]
