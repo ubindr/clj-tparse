@@ -3,14 +3,14 @@
             [clojure.set :refer [map-invert]]
             [clojure.string :as string]))
 
-(declare process-resource resource)
-
-(declare configure-parser vectormap->rdf-edn)
+(declare process-resource resource configure-parser vectormap->rdf-edn)
 
 (def turtle-config-file "resources/rdf-turtle-spec.txt")
 (def input-file "resources/example11.ttl")
 
 (def resultset-map (atom {}))
+
+(def parser-def (insta/parser turtle-config-file))
 
 (defn re-apply
   [vm]
@@ -38,34 +38,9 @@
   [config-file]
   (insta/parser config-file))
 
-(def parser-def (insta/parser turtle-config-file))
-
 (defn parse
   [content]
   (insta/parse parser-def (get-content content)))
-
-
-(defn read-file
-  []
-  (slurp input-file))
-
-(defn input-line
-  [file]
-  (doseq [line (clojure.string/split-lines file)]
-    (println "Een:" line)))
-
-
-(defn start!
-  []
-  (println "no action yet"))
-
-(comment (defn line [n filename]
-           (with-open [rdr (io/reader filename)]
-             (doall (drop (- n 1) (take n (line-seq rdr))))))
-
-         (def turtle
-           (insta/parser
-             (slurp turtle-tst-file) :trace true)))
 
 
 ;;;; unfinished REPL generated functions
@@ -309,11 +284,13 @@
 
 (defn statement-type
   [vm]
-  (for [symbol (rest vm)]
-    (let [kw (first symbol)]
-      (if (keyword? kw)
-        (condp = kw
-          :triples (process-triples symbol)
-          :prefix (process-prefix symbol)
-          :base (process-base symbol)
-          (println "Can't make any sense of this input -kw " kw " -symbol" symbol))))))
+  (last
+    (for [symbol (rest vm)]
+      (let [kw (first symbol)]
+        (if (keyword? kw)
+          (condp = kw
+            :triples (process-triples symbol)
+            :prefix (process-prefix symbol)
+            :base (process-base symbol)
+            (println "Can't make any sense of this input -kw " kw " -symbol" symbol)))
+        @dataset))))
