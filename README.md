@@ -95,4 +95,4 @@ See also core-test for more samples
 
 Copyright © 2016 Richard Nagelmaeker
 
-Distributed under the Eclipse Public License either version 1.0
+Distributed under the Eclipse Public License version 1.0
