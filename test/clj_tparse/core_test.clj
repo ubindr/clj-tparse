@@ -2,7 +2,7 @@
   "Testing the clj-tparse parser"
   (:require [clojure.test :refer :all]
             [instaparse.core :as insta]
-            [clj-tparse.core :refer [statement-type dataset parsing-prefixes triple prefix-counter]]))
+            [clj-tparse.core :refer [parse-statements dataset parsing-prefixes triple prefix-counter]]))
 
 ;; input files for tests
 (def turtle-file "resources/example.ttl")
@@ -41,7 +41,7 @@
 (defn edn-triples
   [input-file]
   (reset-datasets)
-  (statement-type (parse-file input-file (parser))))
+  (parse-statements (parse-file input-file (parser))))
 
 (deftest test-example
   (testing "Does example.ttl parse succesfully?"
