@@ -42,44 +42,44 @@ Because Clojure does not support the number at the beginning of a keyword name.
 ## Output samples
 sample 1:
 ```clojure
-                       #{[:_/bob :foaf/knows :_/alice]
-                         [:_/alice :foaf/knows :_/bob]
-                         [{:empty :blank-node} :foaf/knows {:foaf/name "Bob"}]}
+#{[:_/bob :foaf/knows :_/alice]
+  [:_/alice :foaf/knows :_/bob]
+  [{:empty :blank-node} :foaf/knows {:foaf/name "Bob"}]}
 ```
 
 sample 2:
 ```clojure
-                      #{[:show/#-remove-#218 :show/localName {:value "Cette Série des Années Soixante-dix", :lang "fr"}]
-                        [:show/#-remove-#218 :rdfs/label {:value "That Seventies Show", :type :xsd/string}]
-                        [:show/#-remove-#218 :rdfs/label "That Seventies Show"]
-                        [:show/#-remove-#218 :show/localName {:value "That Seventies Show", :lang "en"}]
-                        [:show/#-remove-#218 :show/localName {:value "Cette Série des Années Septante", :lang "fr-be"}]}
+#{[:show/#-remove-#218 :show/localName {:value "Cette Série des Années Soixante-dix", :lang "fr"}]
+  [:show/#-remove-#218 :rdfs/label {:value "That Seventies Show", :type :xsd/string}]
+  [:show/#-remove-#218 :rdfs/label "That Seventies Show"]
+  [:show/#-remove-#218 :show/localName {:value "That Seventies Show", :lang "en"}]
+  [:show/#-remove-#218 :show/localName {:value "Cette Série des Années Septante", :lang "fr-be"}]}
 ```
 
 sample 3:
 ```clojure
-                       #{[:local/subject6 :rdf/type :local/subject7]
-                         [:p/subject3 :p/predicate3 :p/object3]
-                         [:base/subject2 :base/predicate2 :base/object2]
-                         [:local/subject5 :local/predicate5 :local/object5]
-                         [:ns2/subject4 :ns2/predicate4 :ns2/object4]
-                         [:ns1/subject1 :ns1/predicate1 :ns1/object1]}
+#{[:local/subject6 :rdf/type :local/subject7]
+  [:p/subject3 :p/predicate3 :p/object3]
+  [:base/subject2 :base/predicate2 :base/object2]
+  [:local/subject5 :local/predicate5 :local/object5]
+  [:ns2/subject4 :ns2/predicate4 :ns2/object4]
+  [:ns1/subject1 :ns1/predicate1 :ns1/object1]}
 ```
 
 full dataset sample:
 ```clojure
-       {:prefix {:ns1 "http://one.example/",
-                 :base "http://one.example/",
-                 :p "http://two.example/",
-                 :ns2 "http://one.example/path/",
-                 :local "http://another.example/",
-                 :rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"},
-         :triples #{[:local/subject6 :rdf/type :local/subject7]
-                    [:p/subject3 :p/predicate3 :p/object3]
-                    [:base/subject2 :base/predicate2 :base/object2]
-                    [:local/subject5 :local/predicate5 :local/object5]
-                    [:ns2/subject4 :ns2/predicate4 :ns2/object4]
-                    [:ns1/subject1 :ns1/predicate1 :ns1/object1]}}
+{:prefix {:ns1 "http://one.example/",
+          :base "http://one.example/",
+          :p "http://two.example/",
+          :ns2 "http://one.example/path/",
+          :local "http://another.example/",
+          :rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"},
+ :triples #{[:local/subject6 :rdf/type :local/subject7]
+            [:p/subject3 :p/predicate3 :p/object3]
+            [:base/subject2 :base/predicate2 :base/object2]
+            [:local/subject5 :local/predicate5 :local/object5]
+            [:ns2/subject4 :ns2/predicate4 :ns2/object4]
+            [:ns1/subject1 :ns1/predicate1 :ns1/object1]}}
 ```
 See also core-test for more samples
 
